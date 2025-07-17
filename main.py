@@ -15,6 +15,10 @@ from tempfile import mkstemp
 from paper import ArxivPaper
 from llm import set_global_llm
 import feedparser
+import sqlite3
+import os
+import json
+from pprint import pprint
 
 # def get_zotero_corpus(id:str,key:str) -> list[dict]:(云端版本)
 #     zot = zotero.Zotero(id, 'user', key)
