@@ -208,7 +208,8 @@ if __name__ == '__main__':
         logger.add(sys.stdout, level="INFO")
 
     logger.info("Retrieving Zotero corpus...")
-    corpus = get_zotero_corpus(args.zotero_id, args.zotero_key)
+    local_storage_path = r'C:\Users\31756\Zotero'
+    corpus = get_zotero_corpus(local_storage_path)
     logger.info(f"Retrieved {len(corpus)} papers from Zotero.")
     if args.zotero_ignore:
         logger.info(f"Ignoring papers in:\n {args.zotero_ignore}...")
