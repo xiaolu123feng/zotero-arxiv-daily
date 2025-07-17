@@ -2,6 +2,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from paper import ArxivPaper
 from datetime import datetime
+import sys
 
 def rerank_paper(candidate:list[ArxivPaper],corpus:list[dict],model:str='avsolatorio/GIST-small-Embedding-v0') -> list[ArxivPaper]:
     encoder = SentenceTransformer(model)
@@ -16,8 +17,8 @@ def rerank_paper(candidate:list[ArxivPaper],corpus:list[dict],model:str='avsolat
     corpus_feature = encoder.encode(corpus_texts, convert_to_tensor=True)
 
     print("candidate_feature shape:", candidate_feature.shape)
-    print("corpus_feature shape:", corpus_feature.shape)
-
+    print("corpus_feature shape:", corpus_feature.shape) 
+    sys.stdout.flush()
 
     sim = encoder.similarity(candidate_feature,corpus_feature) # [n_candidate, n_corpus]
     scores = (sim * time_decay_weight).sum(axis=1) * 10 # [n_candidate]
