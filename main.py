@@ -16,20 +16,69 @@ from paper import ArxivPaper
 from llm import set_global_llm
 import feedparser
 
-def get_zotero_corpus(id:str,key:str) -> list[dict]:
-    zot = zotero.Zotero(id, 'user', key)
-    collections = zot.everything(zot.collections())
-    collections = {c['key']:c for c in collections}
-    corpus = zot.everything(zot.items(itemType='conferencePaper || journalArticle || preprint'))
-    corpus = [c for c in corpus if c['data']['abstractNote'] != '']
-    def get_collection_path(col_key:str) -> str:
-        if p := collections[col_key]['data']['parentCollection']:
-            return get_collection_path(p) + '/' + collections[col_key]['data']['name']
-        else:
-            return collections[col_key]['data']['name']
-    for c in corpus:
-        paths = [get_collection_path(col) for col in c['data']['collections']]
-        c['paths'] = paths
+# def get_zotero_corpus(id:str,key:str) -> list[dict]:(云端版本)
+#     zot = zotero.Zotero(id, 'user', key)
+#     collections = zot.everything(zot.collections())
+#     collections = {c['key']:c for c in collections}
+#     corpus = zot.everything(zot.items(itemType='conferencePaper || journalArticle || preprint'))
+#     corpus = [c for c in corpus if c['data']['abstractNote'] != '']
+#     def get_collection_path(col_key:str) -> str:
+#         if p := collections[col_key]['data']['parentCollection']:
+#             return get_collection_path(p) + '/' + collections[col_key]['data']['name']
+#         else:
+#             return collections[col_key]['data']['name']
+#     for c in corpus:
+#         paths = [get_collection_path(col) for col in c['data']['collections']]
+#         c['paths'] = paths
+#     return corpus
+
+def get_zotero_corpus(zotero_dir: str) -> list[dict]:
+    db_path = os.path.join(zotero_dir, 'zotero.sqlite')
+    storage_path = os.path.join(zotero_dir, 'storage')
+
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"未找到数据库文件：{db_path}")
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    # 查询所有包含摘要的文献条目（注：abstractNote 在 extra 字段中或直接在 itemData）
+    query = """
+    SELECT items.itemID, 
+           itemDataValues.value AS abstractNote,
+           items.key AS itemKey,
+           itemTypes.typeName,
+           itemAttachments.path AS filePath,
+           items.dateAdded
+    FROM items
+    LEFT JOIN itemData ON items.itemID = itemData.itemID
+    LEFT JOIN itemDataValues ON itemData.valueID = itemDataValues.valueID
+    LEFT JOIN fields ON itemData.fieldID = fields.fieldID
+    LEFT JOIN itemTypes ON items.itemTypeID = itemTypes.itemTypeID
+    LEFT JOIN itemAttachments ON items.itemID = itemAttachments.parentItemID
+    WHERE fields.fieldName = 'abstractNote'
+      AND itemDataValues.value IS NOT NULL
+    """
+
+
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    conn.close()
+
+    corpus = []
+    for row in rows:
+        item = {
+            "itemID": row["itemID"],
+            "itemKey": row["itemKey"],
+            "type": row["typeName"],
+            "abstractNote": row["abstractNote"],
+            "filePath": row["filePath"] if row["filePath"] else "",
+            "storagePath": os.path.join(storage_path, row["itemKey"]),
+            "dateAdded": row["dateAdded"],
+        }
+        corpus.append(item)
+
     return corpus
 
 def filter_corpus(corpus:list[dict], pattern:str) -> list[dict]:
